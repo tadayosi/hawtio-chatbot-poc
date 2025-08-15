@@ -1,9 +1,8 @@
-import { Button, Content, Masthead, MastheadBrand, MastheadContent, MastheadLogo, MastheadMain, Page, PageSection, Toolbar, ToolbarContent, ToolbarItem } from '@patternfly/react-core'
-import { useState } from 'react'
-import './App.css'
+import { Masthead, MastheadBrand, MastheadContent, MastheadLogo, MastheadMain, Toolbar, ToolbarContent, ToolbarItem } from '@patternfly/react-core'
+import { FC } from 'react'
+import { EmbeddedChatbotDemo } from './Chat'
 
-export const App = () => {
-  const [count, setCount] = useState(0)
+export const App: FC<{}> = () => {
   const headerToolbar = (
     <Toolbar>
       <ToolbarContent>
@@ -24,17 +23,5 @@ export const App = () => {
     </Masthead>
   )
 
-  return (
-    <Page masthead={masthead}>
-      <PageSection>
-        <Content component='h2'>Chatbot</Content>
-        <Content component='p'>
-          Hello!
-        </Content>
-        <Button onClick={() => setCount((count) => count + 1)}>
-          {count}
-        </Button>
-      </PageSection>
-    </Page>
-  )
+  return (<EmbeddedChatbotDemo />)
 }
