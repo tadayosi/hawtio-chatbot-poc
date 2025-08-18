@@ -1,27 +1,47 @@
-import { Masthead, MastheadBrand, MastheadContent, MastheadLogo, MastheadMain, Toolbar, ToolbarContent, ToolbarItem } from '@patternfly/react-core'
-import { FC } from 'react'
-import { EmbeddedChatbotDemo } from './Chat'
+import {
+  Masthead, MastheadBrand,
+  MastheadLogo, MastheadMain, MastheadToggle, Page,
+  PageSidebar, PageSidebarBody, PageToggleButton
+} from '@patternfly/react-core'
+import { BarsIcon } from '@patternfly/react-icons'
+import { FC, useState } from 'react'
+import { ChatApp } from './Chat'
 
 export const App: FC<{}> = () => {
-  const headerToolbar = (
-    <Toolbar>
-      <ToolbarContent>
-        <ToolbarItem>Menu 1</ToolbarItem>
-        <ToolbarItem>Menu 2</ToolbarItem>
-      </ToolbarContent>
-    </Toolbar>
-  )
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   const masthead = (
     <Masthead>
       <MastheadMain>
+        <MastheadToggle>
+          <PageToggleButton
+            variant="plain"
+            aria-label="Global navigation"
+            isSidebarOpen={isSidebarOpen}
+            onSidebarToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+            id="fill-nav-toggle"
+          >
+            <BarsIcon />
+          </PageToggleButton>
+        </MastheadToggle>
         <MastheadBrand>
-          <MastheadLogo>Hawtio AI</MastheadLogo>
+          <MastheadLogo>
+            Hawtio AI
+          </MastheadLogo>
         </MastheadBrand>
       </MastheadMain>
-      <MastheadContent>{headerToolbar}</MastheadContent>
     </Masthead>
   )
 
-  return (<EmbeddedChatbotDemo />)
+  const sidebar = (
+    <PageSidebar isSidebarOpen={isSidebarOpen} id="fill-sidebar">
+      <PageSidebarBody>Navigation</PageSidebarBody>
+    </PageSidebar>
+  )
+
+  return (
+    <Page masthead={masthead} sidebar={sidebar} isContentFilled>
+      <ChatApp />
+    </Page>
+  )
 }
