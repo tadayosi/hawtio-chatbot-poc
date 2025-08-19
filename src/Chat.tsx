@@ -15,11 +15,10 @@ import Message, { MessageProps } from '@patternfly/chatbot/dist/dynamic/Message'
 import MessageBar from '@patternfly/chatbot/dist/dynamic/MessageBar'
 import MessageBox from '@patternfly/chatbot/dist/dynamic/MessageBox'
 import {
-  Brand, Bullseye,
+  Bullseye,
+  Content,
   DropdownItem, DropdownList
 } from '@patternfly/react-core'
-import PFHorizontalLogoColor from '@patternfly/react-core/dist/styles/assets/images/PF-HorizontalLogo-Color.svg'
-import PFHorizontalLogoReverse from '@patternfly/react-core/dist/styles/assets/images/PF-HorizontalLogo-Reverse.svg'
 import userAvatar from '@patternfly/react-core/dist/styles/assets/images/img_avatar-light.svg'
 import React, { FC, useEffect, useRef, useState } from 'react'
 //import patternflyAvatar from '@patternfly/react-core/dist/styles/assets/images/PF-IconLogo.svg'
@@ -50,6 +49,12 @@ const initialMessages: MessageProps[] = [
 ]
 
 const initialConversations: Conversation[] | { [key: string]: Conversation[] } = {}
+
+const models: { id: string; name: string }[] = [
+  { id: 'granite-7b', name: 'Granite 7B' },
+  { id: 'llama-30', name: 'Llama 3.0' },
+  { id: 'mistral-3b', name: 'Mistral 3B' }
+]
 
 export const ChatApp: FC<{}> = () => {
   const [messages, setMessages] = useState(initialMessages)
@@ -150,31 +155,21 @@ export const ChatApp: FC<{}> = () => {
     return filteredConversations
   }
 
-  const horizontalLogo = (
-    <Bullseye>
-      <Brand className="show-light" src={PFHorizontalLogoColor} alt="PatternFly" />
-      <Brand className="show-dark" src={PFHorizontalLogoReverse} alt="PatternFly" />
-    </Bullseye>
-  )
 
   const chatbotHeader = (
     <ChatbotHeader>
       <ChatbotHeaderMain>
         <ChatbotHeaderMenu aria-expanded={isDrawerOpen} onMenuToggle={() => setIsDrawerOpen(!isDrawerOpen)} />
-        <ChatbotHeaderTitle>{horizontalLogo}</ChatbotHeaderTitle>
+        <ChatbotHeaderTitle>
+          <Bullseye>
+            <Content component='h1'>Hawtio AI</Content>
+          </Bullseye>
+        </ChatbotHeaderTitle>
       </ChatbotHeaderMain>
       <ChatbotHeaderActions>
         <ChatbotHeaderSelectorDropdown value={selectedModel} onSelect={onSelectModel}>
           <DropdownList>
-            <DropdownItem value="Granite 7B" key="granite">
-              Granite 7B
-            </DropdownItem>
-            <DropdownItem value="Llama 3.0" key="llama">
-              Llama 3.0
-            </DropdownItem>
-            <DropdownItem value="Mistral 3B" key="mistral">
-              Mistral 3B
-            </DropdownItem>
+            {models.map(({ id, name }) => <DropdownItem value={name} key={id}>{name}</DropdownItem>)}
           </DropdownList>
         </ChatbotHeaderSelectorDropdown>
       </ChatbotHeaderActions>
@@ -191,17 +186,12 @@ export const ChatApp: FC<{}> = () => {
                   the map of messages, so that users are forced to scroll to the bottom.
                   If you are using streaming, you will want to take a different approach; 
                   see: https://github.com/patternfly/virtual-assistant/issues/201#issuecomment-2400725173 */}
-        {messages.map((message, index) => {
-          if (index === messages.length - 1) {
-            return (
-              <>
-                <div ref={scrollToBottomRef}></div>
-                <Message key={message.id} {...message} />
-              </>
-            )
-          }
-          return <Message key={message.id} {...message} />
-        })}
+        {messages.map((message, index) => (
+          <>
+            {index === messages.length - 1 && (<div ref={scrollToBottomRef}></div>)}
+            <Message key={message.id} {...message} />
+          </>
+        ))}
       </MessageBox>
     </ChatbotContent>
   )
