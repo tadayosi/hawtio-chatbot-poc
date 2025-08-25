@@ -20,21 +20,34 @@ import {
   DropdownItem, DropdownList
 } from '@patternfly/react-core'
 import userAvatar from '@patternfly/react-core/dist/styles/assets/images/img_avatar-light.svg'
-import React, { FC, Fragment, useEffect, useRef, useState } from 'react'
+import React, { createContext, Dispatch, FC, Fragment, useContext, useEffect, useRef, useState } from 'react'
 //import patternflyAvatar from '@patternfly/react-core/dist/styles/assets/images/PF-IconLogo.svg'
 import patternflyAvatar from './assets/patternfly_avatar.jpg'
 import { Model, MODELS } from './model'
 
 const initialConversations: Conversation[] | { [key: string]: Conversation[] } = {}
 
+type ChatContext = {
+  messages: MessageProps[],
+  setMessages: Dispatch<React.SetStateAction<MessageProps[]>>,
+  announcement: string,
+  setAnnouncement: Dispatch<React.SetStateAction<string>>
+}
+
+const ChatContext = createContext<ChatContext>({
+  messages: [],
+  setMessages: () => {},
+  announcement: '',
+  setAnnouncement: () => {}
+})
+
 export const ChatApp: FC<{}> = () => {
   const [messages, setMessages] = useState<MessageProps[]>([])
   const [selectedModel, setSelectedModel] = useState(MODELS[0].name)
   const [model, setModel] = useState(new Model(MODELS[0]))
-  const [isSendButtonDisabled, setIsSendButtonDisabled] = useState(false)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [conversations, setConversations] = useState(initialConversations)
-  const [announcement, setAnnouncement] = useState<string>()
+  const [announcement, setAnnouncement] = useState<string>('')
   const scrollToBottomRef = useRef<HTMLDivElement>(null)
 
   console.log('Use model:', model)
@@ -56,65 +69,6 @@ export const ChatApp: FC<{}> = () => {
 
   const onSelectModel = (_event?: React.MouseEvent<Element, MouseEvent>, value?: string | number) => {
     setSelectedModel(value as string)
-  }
-
-  // you will likely want to come up with your own unique id function; this is for demo purposes only
-  const generateId = () => {
-    const id = Date.now() + Math.random()
-    return id.toString()
-  }
-
-  const handleSend = (message: string | number) => {
-    setIsSendButtonDisabled(true)
-    const newMessages: MessageProps[] = []
-    // we can't use structuredClone since messages contains functions, but we can't mutate
-    // items that are going into state or the UI won't update correctly
-    messages.forEach((message) => newMessages.push(message))
-    newMessages.push({ id: generateId(), role: 'user', content: String(message), name: 'User', avatar: userAvatar })
-    newMessages.push({
-      id: generateId(),
-      role: 'bot',
-      content: 'API response goes here',
-      name: 'Bot',
-      avatar: patternflyAvatar,
-      isLoading: true
-    })
-    setMessages(newMessages)
-    // make announcement to assistive devices that new messages have been added
-    setAnnouncement(`Message from User: ${message}. Message from Bot is loading.`)
-
-    // this is for demo purposes only; in a real situation, there would be an API response we would wait for
-    setTimeout(() => {
-      const loadedMessages: MessageProps[] = []
-      // we can't use structuredClone since messages contains functions, but we can't mutate
-      // items that are going into state or the UI won't update correctly
-      newMessages.forEach((message) => loadedMessages.push(message))
-      loadedMessages.pop()
-      loadedMessages.push({
-        id: generateId(),
-        role: 'bot',
-        content: 'API response goes here',
-        name: 'Bot',
-        avatar: patternflyAvatar,
-        isLoading: false,
-        actions: {
-          // eslint-disable-next-line no-console
-          positive: { onClick: () => console.log('Good response') },
-          // eslint-disable-next-line no-console
-          negative: { onClick: () => console.log('Bad response') },
-          // eslint-disable-next-line no-console
-          copy: { onClick: () => console.log('Copy') },
-          // eslint-disable-next-line no-console
-          share: { onClick: () => console.log('Share') },
-          // eslint-disable-next-line no-console
-          listen: { onClick: () => console.log('Listen') }
-        }
-      })
-      setMessages(loadedMessages)
-      // make announcement to assistive devices that new message has loaded
-      setAnnouncement(`Message from Bot: API response goes here`)
-      setIsSendButtonDisabled(false)
-    }, 5000)
   }
 
   const findMatchingItems = (targetValue: string) => {
@@ -175,16 +129,6 @@ export const ChatApp: FC<{}> = () => {
     </ChatbotContent>
   )
 
-  const chatbotFooter = (
-    <ChatbotFooter>
-      <MessageBar
-        onSendMessage={handleSend}
-        hasAttachButton={false}
-        isSendButtonDisabled={isSendButtonDisabled}
-      />
-    </ChatbotFooter>
-  )
-
   return (
     <Chatbot displayMode={ChatbotDisplayMode.embedded}>
       <ChatbotConversationHistoryNav
@@ -214,13 +158,88 @@ export const ChatApp: FC<{}> = () => {
           setConversations(newConversations)
         }}
         drawerContent={
-          <>
+          <ChatContext.Provider value={{ messages, setMessages, announcement, setAnnouncement }}>
             {chatbotHeader}
             {chatbotContent}
-            {chatbotFooter}
-          </>
+            <ChatAppFooter />
+          </ChatContext.Provider>
         }
       />
     </Chatbot>
   )
 }
+
+const ChatAppFooter: FC<{}> = () => {
+  const { messages, setMessages, setAnnouncement } = useContext(ChatContext)
+  const [isSendButtonDisabled, setIsSendButtonDisabled] = useState(false)
+
+  // you will likely want to come up with your own unique id function; this is for demo purposes only
+  const generateId = () => {
+    const id = Date.now() + Math.random()
+    return id.toString()
+  }
+
+  const handleSend = (message: string | number) => {
+    setIsSendButtonDisabled(true)
+    const newMessages: MessageProps[] = []
+    // we can't use structuredClone since messages contains functions, but we can't mutate
+    // items that are going into state or the UI won't update correctly
+    messages.forEach((message) => newMessages.push(message))
+    newMessages.push({ id: generateId(), role: 'user', content: String(message), name: 'User', avatar: userAvatar })
+    newMessages.push({
+      id: generateId(),
+      role: 'bot',
+      content: 'API response goes here',
+      name: 'Bot',
+      avatar: patternflyAvatar,
+      isLoading: true
+    })
+    setMessages(newMessages)
+    // make announcement to assistive devices that new messages have been added
+    setAnnouncement(`Message from User: ${message}. Message from Bot is loading.`)
+
+    // this is for demo purposes only; in a real situation, there would be an API response we would wait for
+    setTimeout(() => {
+      const loadedMessages: MessageProps[] = []
+      // we can't use structuredClone since messages contains functions, but we can't mutate
+      // items that are going into state or the UI won't update correctly
+      newMessages.forEach((message) => loadedMessages.push(message))
+      loadedMessages.pop()
+      loadedMessages.push({
+        id: generateId(),
+        role: 'bot',
+        content: 'API response goes here',
+        name: 'Bot',
+        avatar: patternflyAvatar,
+        isLoading: false,
+        actions: {
+          // eslint-disable-next-line no-console
+          positive: { onClick: () => console.log('Good response') },
+          // eslint-disable-next-line no-console
+          negative: { onClick: () => console.log('Bad response') },
+          // eslint-disable-next-line no-console
+          copy: { onClick: () => console.log('Copy') },
+          // eslint-disable-next-line no-console
+          share: { onClick: () => console.log('Share') },
+          // eslint-disable-next-line no-console
+          listen: { onClick: () => console.log('Listen') }
+        }
+      })
+      setMessages(loadedMessages)
+      // make announcement to assistive devices that new message has loaded
+      setAnnouncement(`Message from Bot: API response goes here`)
+      setIsSendButtonDisabled(false)
+    }, 5000)
+  }
+
+  return (
+    <ChatbotFooter>
+      <MessageBar
+        onSendMessage={handleSend}
+        hasAttachButton={false}
+        isSendButtonDisabled={isSendButtonDisabled}
+      />
+    </ChatbotFooter>
+  )
+}
+
