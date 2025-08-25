@@ -20,50 +20,24 @@ import {
   DropdownItem, DropdownList
 } from '@patternfly/react-core'
 import userAvatar from '@patternfly/react-core/dist/styles/assets/images/img_avatar-light.svg'
-import React, { FC, useEffect, useRef, useState } from 'react'
+import React, { FC, Fragment, useEffect, useRef, useState } from 'react'
 //import patternflyAvatar from '@patternfly/react-core/dist/styles/assets/images/PF-IconLogo.svg'
 import patternflyAvatar from './assets/patternfly_avatar.jpg'
-
-const initialMessages: MessageProps[] = [
-  {
-    id: '1',
-    role: 'user',
-    content: 'Hello',
-    name: 'User',
-    avatar: userAvatar
-  },
-  {
-    id: '2',
-    role: 'bot',
-    content: 'Hello',
-    name: 'Bot',
-    avatar: patternflyAvatar,
-    actions: {
-      positive: { onClick: () => console.log('Good response') },
-      negative: { onClick: () => console.log('Bad response') },
-      copy: { onClick: () => console.log('Copy') },
-      share: { onClick: () => console.log('Share') },
-      listen: { onClick: () => console.log('Listen') }
-    }
-  }
-]
+import { Model, MODELS } from './model'
 
 const initialConversations: Conversation[] | { [key: string]: Conversation[] } = {}
 
-const models: { id: string; name: string }[] = [
-  { id: 'granite-7b', name: 'Granite 7B' },
-  { id: 'llama-30', name: 'Llama 3.0' },
-  { id: 'mistral-3b', name: 'Mistral 3B' }
-]
-
 export const ChatApp: FC<{}> = () => {
-  const [messages, setMessages] = useState(initialMessages)
-  const [selectedModel, setSelectedModel] = useState('Granite 7B')
+  const [messages, setMessages] = useState<MessageProps[]>([])
+  const [selectedModel, setSelectedModel] = useState(MODELS[0].name)
+  const [model, setModel] = useState(new Model(MODELS[0]))
   const [isSendButtonDisabled, setIsSendButtonDisabled] = useState(false)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [conversations, setConversations] = useState(initialConversations)
   const [announcement, setAnnouncement] = useState<string>()
   const scrollToBottomRef = useRef<HTMLDivElement>(null)
+
+  console.log('Use model:', model)
 
   // Auto-scrolls to the latest message
   useEffect(() => {
@@ -73,10 +47,14 @@ export const ChatApp: FC<{}> = () => {
     }
   }, [messages])
 
-  const onSelectModel = (
-    _event: React.MouseEvent<Element, MouseEvent> | undefined,
-    value: string | number | undefined
-  ) => {
+  useEffect(() => {
+    const modelInfo = MODELS.find(m => m.name === selectedModel)
+    if (modelInfo) {
+      setModel(new Model(modelInfo))
+    }
+  }, [selectedModel])
+
+  const onSelectModel = (_event?: React.MouseEvent<Element, MouseEvent>, value?: string | number) => {
     setSelectedModel(value as string)
   }
 
@@ -169,7 +147,7 @@ export const ChatApp: FC<{}> = () => {
       <ChatbotHeaderActions>
         <ChatbotHeaderSelectorDropdown value={selectedModel} onSelect={onSelectModel}>
           <DropdownList>
-            {models.map(({ id, name }) => <DropdownItem value={name} key={id}>{name}</DropdownItem>)}
+            {MODELS.map(({ id, name }) => <DropdownItem value={name} key={id}>{name}</DropdownItem>)}
           </DropdownList>
         </ChatbotHeaderSelectorDropdown>
       </ChatbotHeaderActions>
@@ -186,12 +164,13 @@ export const ChatApp: FC<{}> = () => {
                   the map of messages, so that users are forced to scroll to the bottom.
                   If you are using streaming, you will want to take a different approach; 
                   see: https://github.com/patternfly/virtual-assistant/issues/201#issuecomment-2400725173 */}
-        {messages.map((message, index) => (
-          <>
-            {index === messages.length - 1 && (<div ref={scrollToBottomRef}></div>)}
-            <Message key={message.id} {...message} />
-          </>
-        ))}
+        {messages
+          .map((message, index) => (
+            <Fragment key={message.id}>
+              {index === messages.length - 1 && (<div ref={scrollToBottomRef}></div>)}
+              <Message key={message.id} {...message} />
+            </Fragment>
+          ))}
       </MessageBox>
     </ChatbotContent>
   )
