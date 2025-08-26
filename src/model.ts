@@ -1,6 +1,5 @@
 import { Ollama } from '@llamaindex/ollama'
-import { agent, AgentWorkflow } from '@llamaindex/workflow'
-import { fa } from 'zod/v4/locales'
+import { agent, AgentWorkflow, getContext } from '@llamaindex/workflow'
 
 type ModelId = { id: string; name: string, tool: boolean }
 export const MODELS: ModelId[] = [
@@ -16,11 +15,24 @@ export const MODELS: ModelId[] = [
 ] as const
 
 export class Model {
-  private readonly llm: Ollama
-  private readonly agent: AgentWorkflow
+  readonly llm: Ollama
+  readonly chatAgent: AgentWorkflow
 
-  constructor(private readonly model: ModelId) {
+  constructor(readonly model: ModelId) {
     this.llm = new Ollama({ model: this.model.id, config: { host: 'http://localhost:11434' } })
-    this.agent = agent({ llm: this.llm, verbose: true })
+    this.chatAgent = agent({ llm: this.llm, tools: [], verbose: true })
+  }
+
+  async chat(message: string): Promise<string> {
+    console.log('Chatting with', this.model.id, ':', message)
+    getContext()
+    try {
+      const response = await this.chatAgent.run(message)
+      console.log('Chat response:', response)
+      return String(response.data.message.content)
+    } catch (error) {
+      console.error('Error while chatting:', error)
+      return String(error)
+    }
   }
 }

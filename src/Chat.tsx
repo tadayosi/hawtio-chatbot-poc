@@ -20,56 +20,22 @@ import {
   DropdownItem, DropdownList
 } from '@patternfly/react-core'
 import userAvatar from '@patternfly/react-core/dist/styles/assets/images/img_avatar-light.svg'
-import React, { createContext, Dispatch, FC, Fragment, useContext, useEffect, useRef, useState } from 'react'
+import React, { FC, Fragment, useContext, useEffect, useRef, useState } from 'react'
 //import patternflyAvatar from '@patternfly/react-core/dist/styles/assets/images/PF-IconLogo.svg'
 import patternflyAvatar from './assets/patternfly_avatar.jpg'
+import { ChatContext } from './context'
 import { Model, MODELS } from './model'
 
 const initialConversations: Conversation[] | { [key: string]: Conversation[] } = {}
 
-type ChatContext = {
-  messages: MessageProps[],
-  setMessages: Dispatch<React.SetStateAction<MessageProps[]>>,
-  announcement: string,
-  setAnnouncement: Dispatch<React.SetStateAction<string>>
-}
-
-const ChatContext = createContext<ChatContext>({
-  messages: [],
-  setMessages: () => {},
-  announcement: '',
-  setAnnouncement: () => {}
-})
-
 export const ChatApp: FC<{}> = () => {
   const [messages, setMessages] = useState<MessageProps[]>([])
-  const [selectedModel, setSelectedModel] = useState(MODELS[0].name)
   const [model, setModel] = useState(new Model(MODELS[0]))
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [conversations, setConversations] = useState(initialConversations)
   const [announcement, setAnnouncement] = useState<string>('')
-  const scrollToBottomRef = useRef<HTMLDivElement>(null)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
-  console.log('Use model:', model)
-
-  // Auto-scrolls to the latest message
-  useEffect(() => {
-    // don't scroll the first load - in this demo, we know we start with two messages
-    if (messages.length > 2) {
-      scrollToBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [messages])
-
-  useEffect(() => {
-    const modelInfo = MODELS.find(m => m.name === selectedModel)
-    if (modelInfo) {
-      setModel(new Model(modelInfo))
-    }
-  }, [selectedModel])
-
-  const onSelectModel = (_event?: React.MouseEvent<Element, MouseEvent>, value?: string | number) => {
-    setSelectedModel(value as string)
-  }
+  console.log('Use model:', model.model.id)
 
   const findMatchingItems = (targetValue: string) => {
     let filteredConversations = Object.entries(initialConversations).reduce((acc, [key, items]) => {
@@ -86,48 +52,6 @@ export const ChatApp: FC<{}> = () => {
     }
     return filteredConversations
   }
-
-
-  const chatbotHeader = (
-    <ChatbotHeader>
-      <ChatbotHeaderMain>
-        <ChatbotHeaderMenu aria-expanded={isDrawerOpen} onMenuToggle={() => setIsDrawerOpen(!isDrawerOpen)} />
-        <ChatbotHeaderTitle>
-          <Bullseye>
-            <Content component='h1'>Hawtio AI</Content>
-          </Bullseye>
-        </ChatbotHeaderTitle>
-      </ChatbotHeaderMain>
-      <ChatbotHeaderActions>
-        <ChatbotHeaderSelectorDropdown value={selectedModel} onSelect={onSelectModel}>
-          <DropdownList>
-            {MODELS.map(({ id, name }) => <DropdownItem value={name} key={id}>{name}</DropdownItem>)}
-          </DropdownList>
-        </ChatbotHeaderSelectorDropdown>
-      </ChatbotHeaderActions>
-    </ChatbotHeader>
-  )
-
-  const chatbotContent = (
-    <ChatbotContent>
-      {/* Update the announcement prop on MessageBox whenever a new message is sent
-                 so that users of assistive devices receive sufficient context  */}
-      <MessageBox announcement={announcement}>
-        {/* This code block enables scrolling to the top of the last message.
-                  You can instead choose to move the div with scrollToBottomRef on it below 
-                  the map of messages, so that users are forced to scroll to the bottom.
-                  If you are using streaming, you will want to take a different approach; 
-                  see: https://github.com/patternfly/virtual-assistant/issues/201#issuecomment-2400725173 */}
-        {messages
-          .map((message, index) => (
-            <Fragment key={message.id}>
-              {index === messages.length - 1 && (<div ref={scrollToBottomRef}></div>)}
-              <Message key={message.id} {...message} />
-            </Fragment>
-          ))}
-      </MessageBox>
-    </ChatbotContent>
-  )
 
   return (
     <Chatbot displayMode={ChatbotDisplayMode.embedded}>
@@ -158,9 +82,11 @@ export const ChatApp: FC<{}> = () => {
           setConversations(newConversations)
         }}
         drawerContent={
-          <ChatContext.Provider value={{ messages, setMessages, announcement, setAnnouncement }}>
-            {chatbotHeader}
-            {chatbotContent}
+          <ChatContext.Provider value={{
+            model, setModel, messages, setMessages, announcement, setAnnouncement, isDrawerOpen, setIsDrawerOpen
+          }}>
+            <ChatAppHeader />
+            <ChatAppContent />
             <ChatAppFooter />
           </ChatContext.Provider>
         }
@@ -169,8 +95,78 @@ export const ChatApp: FC<{}> = () => {
   )
 }
 
+const ChatAppHeader: FC<{}> = () => {
+  const { setModel, isDrawerOpen, setIsDrawerOpen } = useContext(ChatContext)
+  const [selectedModel, setSelectedModel] = useState(MODELS[0].name)
+
+  useEffect(() => {
+    const modelInfo = MODELS.find(m => m.name === selectedModel)
+    if (modelInfo) {
+      setModel(new Model(modelInfo))
+    }
+  }, [selectedModel])
+
+  const onSelectModel = (_event?: React.MouseEvent<Element, MouseEvent>, value?: string | number) => {
+    setSelectedModel(value as string)
+  }
+
+  return (
+    <ChatbotHeader>
+      <ChatbotHeaderMain>
+        <ChatbotHeaderMenu aria-expanded={isDrawerOpen} onMenuToggle={() => setIsDrawerOpen(!isDrawerOpen)} />
+        <ChatbotHeaderTitle>
+          <Bullseye>
+            <Content component='h1'>Hawtio AI</Content>
+          </Bullseye>
+        </ChatbotHeaderTitle>
+      </ChatbotHeaderMain>
+      <ChatbotHeaderActions>
+        <ChatbotHeaderSelectorDropdown value={selectedModel} onSelect={onSelectModel}>
+          <DropdownList>
+            {MODELS.map(({ id, name }) => <DropdownItem value={name} key={id}>{name}</DropdownItem>)}
+          </DropdownList>
+        </ChatbotHeaderSelectorDropdown>
+      </ChatbotHeaderActions>
+    </ChatbotHeader >
+  )
+}
+
+const ChatAppContent: FC<{}> = () => {
+  const { messages, announcement } = useContext(ChatContext)
+  const scrollToBottomRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scrolls to the latest message
+  useEffect(() => {
+    // don't scroll the first load - in this demo, we know we start with two messages
+    if (messages.length > 2) {
+      scrollToBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages])
+
+  return (
+    <ChatbotContent>
+      {/* Update the announcement prop on MessageBox whenever a new message is sent
+                 so that users of assistive devices receive sufficient context  */}
+      <MessageBox announcement={announcement}>
+        {/* This code block enables scrolling to the top of the last message.
+                  You can instead choose to move the div with scrollToBottomRef on it below 
+                  the map of messages, so that users are forced to scroll to the bottom.
+                  If you are using streaming, you will want to take a different approach; 
+                  see: https://github.com/patternfly/virtual-assistant/issues/201#issuecomment-2400725173 */}
+        {messages
+          .map((message, index) => (
+            <Fragment key={message.id}>
+              {index === messages.length - 1 && (<div ref={scrollToBottomRef} />)}
+              <Message key={message.id} {...message} />
+            </Fragment>
+          ))}
+      </MessageBox>
+    </ChatbotContent>
+  )
+}
+
 const ChatAppFooter: FC<{}> = () => {
-  const { messages, setMessages, setAnnouncement } = useContext(ChatContext)
+  const { model, messages, setMessages, setAnnouncement } = useContext(ChatContext)
   const [isSendButtonDisabled, setIsSendButtonDisabled] = useState(false)
 
   // you will likely want to come up with your own unique id function; this is for demo purposes only
@@ -179,13 +175,15 @@ const ChatAppFooter: FC<{}> = () => {
     return id.toString()
   }
 
-  const handleSend = (message: string | number) => {
+  const handleSend = (message: string) => {
+    if (!message.trim()) {
+      return
+    }
+
     setIsSendButtonDisabled(true)
     const newMessages: MessageProps[] = []
-    // we can't use structuredClone since messages contains functions, but we can't mutate
-    // items that are going into state or the UI won't update correctly
-    messages.forEach((message) => newMessages.push(message))
-    newMessages.push({ id: generateId(), role: 'user', content: String(message), name: 'User', avatar: userAvatar })
+    newMessages.push(...messages)
+    newMessages.push({ id: generateId(), role: 'user', content: message, name: 'User', avatar: userAvatar })
     newMessages.push({
       id: generateId(),
       role: 'bot',
@@ -198,44 +196,35 @@ const ChatAppFooter: FC<{}> = () => {
     // make announcement to assistive devices that new messages have been added
     setAnnouncement(`Message from User: ${message}. Message from Bot is loading.`)
 
-    // this is for demo purposes only; in a real situation, there would be an API response we would wait for
-    setTimeout(() => {
+    model.chat(message).then(response => {
       const loadedMessages: MessageProps[] = []
-      // we can't use structuredClone since messages contains functions, but we can't mutate
-      // items that are going into state or the UI won't update correctly
-      newMessages.forEach((message) => loadedMessages.push(message))
+      loadedMessages.push(...newMessages)
       loadedMessages.pop()
       loadedMessages.push({
         id: generateId(),
         role: 'bot',
-        content: 'API response goes here',
+        content: response,
         name: 'Bot',
         avatar: patternflyAvatar,
         isLoading: false,
         actions: {
-          // eslint-disable-next-line no-console
           positive: { onClick: () => console.log('Good response') },
-          // eslint-disable-next-line no-console
           negative: { onClick: () => console.log('Bad response') },
-          // eslint-disable-next-line no-console
           copy: { onClick: () => console.log('Copy') },
-          // eslint-disable-next-line no-console
           share: { onClick: () => console.log('Share') },
-          // eslint-disable-next-line no-console
           listen: { onClick: () => console.log('Listen') }
         }
       })
       setMessages(loadedMessages)
-      // make announcement to assistive devices that new message has loaded
-      setAnnouncement(`Message from Bot: API response goes here`)
+      setAnnouncement(`Message from Bot: ${response}`)
       setIsSendButtonDisabled(false)
-    }, 5000)
+    })
   }
 
   return (
     <ChatbotFooter>
       <MessageBar
-        onSendMessage={handleSend}
+        onSendMessage={m => handleSend(String(m))}
         hasAttachButton={false}
         isSendButtonDisabled={isSendButtonDisabled}
       />
