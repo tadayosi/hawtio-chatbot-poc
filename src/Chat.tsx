@@ -26,25 +26,25 @@ import patternflyAvatar from './assets/patternfly_avatar.jpg'
 import { ChatContext } from './context'
 import { Model, MODELS } from './model'
 
-const initialConversations: Conversation[] | { [key: string]: Conversation[] } = {}
+const initialConversations: Conversation[] | Record<string, Conversation[]> = {}
 
 export const ChatApp: FC<{}> = () => {
   const [messages, setMessages] = useState<MessageProps[]>([])
-  const [model, setModel] = useState(new Model(MODELS[0]))
-  const [conversations, setConversations] = useState(initialConversations)
+  const [model, setModel] = useState(new Model(MODELS[0]!))
+  const [conversations, setConversations] = useState<Conversation[] | Record<string, Conversation[]>>(initialConversations)
   const [announcement, setAnnouncement] = useState<string>('')
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
   console.log('Use model:', model.model.id)
 
   const findMatchingItems = (targetValue: string) => {
-    let filteredConversations = Object.entries(initialConversations).reduce((acc, [key, items]) => {
+    let filteredConversations: Conversation[] | Record<string, Conversation[]> = Object.entries(initialConversations).reduce((acc, [key, items]) => {
       const filteredItems = items.filter((item) => item.text.toLowerCase().includes(targetValue.toLowerCase()))
       if (filteredItems.length > 0) {
         acc[key] = filteredItems
       }
       return acc
-    }, {})
+    }, {} as Record<string, Conversation[]>)
 
     // append message if no items are found
     if (Object.keys(filteredConversations).length === 0) {
@@ -78,7 +78,7 @@ export const ChatApp: FC<{}> = () => {
           }
           // this is where you would perform search on the items in the drawer
           // and update the state
-          const newConversations: { [key: string]: Conversation[] } = findMatchingItems(value)
+          const newConversations = findMatchingItems(value)
           setConversations(newConversations)
         }}
         drawerContent={
@@ -97,7 +97,7 @@ export const ChatApp: FC<{}> = () => {
 
 const ChatAppHeader: FC<{}> = () => {
   const { setModel, isDrawerOpen, setIsDrawerOpen } = useContext(ChatContext)
-  const [selectedModel, setSelectedModel] = useState(MODELS[0].name)
+  const [selectedModel, setSelectedModel] = useState(MODELS[0]!.name)
 
   useEffect(() => {
     const modelInfo = MODELS.find(m => m.name === selectedModel)
@@ -196,7 +196,7 @@ const ChatAppFooter: FC<{}> = () => {
     // make announcement to assistive devices that new messages have been added
     setAnnouncement(`Message from User: ${message}. Message from Bot is loading.`)
 
-    model.chat(message).then(response => {
+    model.chat({ content: message, role: 'user' }).then(response => {
       const loadedMessages: MessageProps[] = []
       loadedMessages.push(...newMessages)
       loadedMessages.pop()

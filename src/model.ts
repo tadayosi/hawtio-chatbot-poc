@@ -1,5 +1,6 @@
 import { Ollama } from '@llamaindex/ollama'
-import { agent, AgentWorkflow, getContext } from '@llamaindex/workflow'
+import { agent, AgentWorkflow } from '@llamaindex/workflow'
+import { ChatMessage } from 'llamaindex'
 
 type ModelId = { id: string; name: string, tool: boolean }
 export const MODELS: ModelId[] = [
@@ -23,13 +24,12 @@ export class Model {
     this.chatAgent = agent({ llm: this.llm, tools: [], verbose: true })
   }
 
-  async chat(message: string): Promise<string> {
+  async chat(message: ChatMessage): Promise<string> {
     console.log('Chatting with', this.model.id, ':', message)
-    getContext()
     try {
-      const response = await this.chatAgent.run(message)
+      const response = await this.llm.chat({ messages: [message] })
       console.log('Chat response:', response)
-      return String(response.data.message.content)
+      return String(response.message.content)
     } catch (error) {
       console.error('Error while chatting:', error)
       return String(error)
