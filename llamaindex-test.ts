@@ -3,8 +3,9 @@ import { agent } from "@llamaindex/workflow"
 import { Settings, tool } from "llamaindex"
 import { z } from "zod"
 
-const model = new Ollama({ model: 'qwen3', config: { host: "http://localhost:11434" } })
-const embedModel = new OllamaEmbedding({ model: 'qwen3', config: { host: "http://localhost:11434" } })
+const modelId = 'llama3.2'
+const model = new Ollama({ model: modelId, config: { host: "http://localhost:11434" } })
+const embedModel = new OllamaEmbedding({ model: modelId, config: { host: "http://localhost:11434" } })
 
 Settings.llm = model
 Settings.embedModel = embedModel
