@@ -7,11 +7,20 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "run-script": "yarn dlx tsx"
   },
   "dependencies": {
+    "@llamaindex/google": "^0.3.20",
+    "@llamaindex/ollama": "^0.1.21",
+    "@llamaindex/openai": "^0.4.17",
+    "@llamaindex/workflow": "^1.1.21",
+    "@patternfly/chatbot": "^6.3.2",
+    "@patternfly/react-core": "^6.3.1",
+    "llamaindex": "^0.11.27",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
@@ -24,5 +33,5 @@
     "globals": "^16.3.0",
     "vite": "^7.1.2"
   },
-  "packageManager": "yarn@4.9.2"
+  "packageManager": "yarn@4.9.4"
 }
