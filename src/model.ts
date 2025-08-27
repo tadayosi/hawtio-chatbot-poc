@@ -25,7 +25,7 @@ export class Model {
   }
 
   async chat(message: ChatMessage): Promise<string> {
-    console.log('Chatting with', this.model.id, ':', message)
+    console.log('Chatting with', this.model.id, ':', message.content)
     try {
       const response = await this.llm.chat({ messages: [message] })
       console.log('Chat response:', response)
