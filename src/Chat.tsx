@@ -15,6 +15,7 @@ import Message, { MessageProps } from '@patternfly/chatbot/dist/dynamic/Message'
 import MessageBar from '@patternfly/chatbot/dist/dynamic/MessageBar'
 import MessageBox from '@patternfly/chatbot/dist/dynamic/MessageBox'
 import {
+  Alert,
   Bullseye,
   Content,
   DropdownItem, DropdownList
@@ -24,13 +25,13 @@ import React, { FC, Fragment, useContext, useEffect, useRef, useState } from 're
 //import patternflyAvatar from '@patternfly/react-core/dist/styles/assets/images/PF-IconLogo.svg'
 import patternflyAvatar from './assets/patternfly_avatar.jpg'
 import { ChatContext } from './context'
-import { Model, MODELS } from './model'
+import { LangChainModel, MODELS } from './model'
 
 const initialConversations: Conversation[] | Record<string, Conversation[]> = {}
 
 export const ChatApp: FC<{}> = () => {
   const [messages, setMessages] = useState<MessageProps[]>([])
-  const [model, setModel] = useState(new Model(MODELS[0]!))
+  const [model, setModel] = useState(new LangChainModel(MODELS[0]!))
   const [conversations, setConversations] = useState<Conversation[] | Record<string, Conversation[]>>(initialConversations)
   const [announcement, setAnnouncement] = useState<string>('')
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
@@ -102,7 +103,7 @@ const ChatAppHeader: FC<{}> = () => {
   useEffect(() => {
     const modelInfo = MODELS.find(m => m.name === selectedModel)
     if (modelInfo) {
-      setModel(new Model(modelInfo))
+      setModel(new LangChainModel(modelInfo))
     }
   }, [selectedModel])
 
@@ -196,14 +197,21 @@ const ChatAppFooter: FC<{}> = () => {
     // make announcement to assistive devices that new messages have been added
     setAnnouncement(`Message from User: ${message}. Message from Bot is loading.`)
 
-    model.chat({ content: message, role: 'user' }).then(response => {
+    model.chat(message).then(response => {
       const loadedMessages: MessageProps[] = []
       loadedMessages.push(...newMessages)
       loadedMessages.pop()
       loadedMessages.push({
         id: generateId(),
         role: 'bot',
-        content: response,
+        content: response.content,
+        extraContent: response.think ? {
+          beforeMainContent: (
+            <Alert variant='info' title='Think' isExpandable>
+              {response.think}
+            </Alert>
+          )
+        } : undefined,
         name: 'Bot',
         avatar: patternflyAvatar,
         isLoading: false,
