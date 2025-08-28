@@ -189,7 +189,7 @@ const ChatAppFooter: FC<{}> = () => {
       id: generateId(),
       role: 'bot',
       content: 'API response goes here',
-      name: 'Bot',
+      name: model.model.name,
       avatar: patternflyAvatar,
       isLoading: true
     })
@@ -212,7 +212,7 @@ const ChatAppFooter: FC<{}> = () => {
             </Alert>
           )
         } : undefined,
-        name: 'Bot',
+        name: model.model.name,
         avatar: patternflyAvatar,
         isLoading: false,
         actions: {

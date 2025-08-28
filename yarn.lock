@@ -541,6 +541,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@google/generative-ai@npm:^0.24.0":
+  version: 0.24.1
+  resolution: "@google/generative-ai@npm:0.24.1"
+  checksum: 10c0/8da77fc648b04fc2ecef53e75230e2ee67a8fd29a34b6b8874e77a7332b2a1e4b51d44dd9eb604fb063ed8ea46d293aac5b1e2a955ae2435e2582a265f2cb80d
+  languageName: node
+  linkType: hard
+
 "@humanfs/core@npm:^0.19.1":
   version: 0.19.1
   resolution: "@humanfs/core@npm:0.19.1"
@@ -653,6 +660,18 @@ __metadata:
     zod: "npm:^3.25.32"
     zod-to-json-schema: "npm:^3.22.3"
   checksum: 10c0/9a22347ca9a4bb78343f96cc083ef487bd39cf7fa1990c87496a2e5e1b17b98703e3d7f7d695062118d7c73cd40ef1d0d0a3305bf21f8381ba18f8837be282ea
+  languageName: node
+  linkType: hard
+
+"@langchain/google-genai@npm:^0.2.16":
+  version: 0.2.16
+  resolution: "@langchain/google-genai@npm:0.2.16"
+  dependencies:
+    "@google/generative-ai": "npm:^0.24.0"
+    uuid: "npm:^11.1.0"
+  peerDependencies:
+    "@langchain/core": ">=0.3.58 <0.4.0"
+  checksum: 10c0/561c05dce23bd8276e899e18adda6febfe3baf33aa6959966daaaf7f7240fb5a3452564462c6c619fc0f7feb9f430945dddf2e77e543334910ad73fa116b985e
   languageName: node
   linkType: hard
 
@@ -2599,6 +2618,7 @@ __metadata:
   dependencies:
     "@eslint/js": "npm:^9.33.0"
     "@langchain/core": "npm:^0.3.72"
+    "@langchain/google-genai": "npm:^0.2.16"
     "@langchain/ollama": "npm:^0.2.3"
     "@llamaindex/core": "npm:^0.6.20"
     "@llamaindex/env": "npm:^0.1.30"
@@ -4967,6 +4987,15 @@ __metadata:
   bin:
     uuid: dist/bin/uuid
   checksum: 10c0/eab18c27fe4ab9fb9709a5d5f40119b45f2ec8314f8d4cf12ce27e4c6f4ffa4a6321dc7db6c515068fa373c075b49691ba969f0010bf37f44c37ca40cd6bf7fe
+  languageName: node
+  linkType: hard
+
+"uuid@npm:^11.1.0":
+  version: 11.1.0
+  resolution: "uuid@npm:11.1.0"
+  bin:
+    uuid: dist/esm/bin/uuid
+  checksum: 10c0/34aa51b9874ae398c2b799c88a127701408cd581ee89ec3baa53509dd8728cbb25826f2a038f9465f8b7be446f0fbf11558862965b18d21c993684297628d4d3
   languageName: node
   linkType: hard
 

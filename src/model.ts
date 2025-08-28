@@ -2,22 +2,25 @@ import { BaseLanguageModelInput } from '@langchain/core/language_models/base'
 import { AIMessageChunk, MessageContent } from '@langchain/core/messages'
 import { Runnable } from '@langchain/core/runnables'
 import { tool } from '@langchain/core/tools'
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 import { ChatOllama, ChatOllamaCallOptions } from "@langchain/ollama"
 import { Ollama } from '@llamaindex/ollama'
 import { agent, AgentWorkflow } from '@llamaindex/workflow'
 import z from 'zod'
 
-type ModelId = { id: string; name: string, tool: boolean }
+type ModelId = { id: string; name: string, tool: boolean, type: 'ollama' | 'google-genai' }
 export const MODELS: ModelId[] = [
-  { id: 'granite3.1-moe:latest', name: 'Granite 3.1 Moe', tool: true },
-  { id: 'granite3.1-dense:latest', name: 'Granite 3.1 Dense', tool: true },
-  { id: 'llama3:latest', name: 'Llama 3', tool: false },
-  { id: 'llama3.2:latest', name: 'Llama 3.2', tool: true },
-  { id: 'llama3.2-vision:latest', name: 'Llama 3.2 Vision', tool: true },
-  { id: 'phi4:latest', name: 'Phi 4', tool: false },
-  { id: 'phi3.5:latest', name: 'Phi 3.5', tool: false },
-  { id: 'qwen3:4b', name: 'Qwen 3 4B', tool: true },
-  { id: 'qwen3:latest', name: 'Qwen 3', tool: true }
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', tool: true, type: 'google-genai' },
+  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', tool: true, type: 'google-genai' },
+  { id: 'granite3.1-moe:latest', name: 'Granite 3.1 Moe', tool: true, type: 'ollama' },
+  { id: 'granite3.1-dense:latest', name: 'Granite 3.1 Dense', tool: true, type: 'ollama' },
+  { id: 'llama3:latest', name: 'Llama 3', tool: false, type: 'ollama' },
+  { id: 'llama3.2:latest', name: 'Llama 3.2', tool: true, type: 'ollama' },
+  { id: 'llama3.2-vision:latest', name: 'Llama 3.2 Vision', tool: true, type: 'ollama' },
+  { id: 'phi4:latest', name: 'Phi 4', tool: false, type: 'ollama' },
+  { id: 'phi3.5:latest', name: 'Phi 3.5', tool: false, type: 'ollama' },
+  { id: 'qwen3:4b', name: 'Qwen 3 4B', tool: true, type: 'ollama' },
+  { id: 'qwen3:latest', name: 'Qwen 3', tool: true, type: 'ollama' }
 ] as const
 
 export type BotMessage = {
@@ -48,12 +51,21 @@ export class LlamaIndexModel {
 }
 
 export class LangChainModel {
-  readonly llm: ChatOllama
-  readonly agent: Runnable<BaseLanguageModelInput, AIMessageChunk, ChatOllamaCallOptions>
+  readonly llm: ChatGoogleGenerativeAI | ChatOllama
+  readonly agent?: Runnable<BaseLanguageModelInput, AIMessageChunk, ChatOllamaCallOptions>
 
   constructor(readonly model: ModelId) {
-    this.llm = new ChatOllama({ model: this.model.id })
-    this.agent = this.llm.bindTools([greetTool])
+    switch (model.type) {
+      case 'google-genai':
+        this.llm = new ChatGoogleGenerativeAI({ model: this.model.id, apiKey: import.meta.env.VITE_GOOGLE_API_KEY })
+        break
+      case 'ollama':
+      default:
+        this.llm = new ChatOllama({ model: this.model.id })
+    }
+    if (model.tool) {
+      this.agent = this.llm.bindTools([greetTool])
+    }
   }
 
   async chat(message: string): Promise<BotMessage> {
@@ -69,7 +81,14 @@ export class LangChainModel {
   }
 
   private toBotMessage(message: MessageContent): BotMessage {
-    const str = String(message)
+    let str = ''
+    if (Array.isArray(message)) {
+      const complex = message[0]
+      console.log('Complex message:', complex)
+      complex?.type === 'text' && (str = complex.text)
+    } else {
+      str = message as string
+    }
     // extract inside <think>...</think> from message
     const think = str.match(/<think>(.*?)<\/think>/s)?.[1]?.trim()
     // remove <think>...</think> from message
