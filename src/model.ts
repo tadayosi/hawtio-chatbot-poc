@@ -77,6 +77,11 @@ export class LangChainModel {
       } else {
         response = await this.llm.invoke(["user", message])
       }
+
+      if (response.tool_calls) {
+        console.log('Tool calls:', response.tool_calls)
+      }
+
       console.log('Chat response:', response)
       return this.toBotMessage(response.content)
     } catch (error) {
