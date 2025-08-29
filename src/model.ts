@@ -52,7 +52,7 @@ export class LlamaIndexModel {
 
 export class LangChainModel {
   readonly llm: ChatGoogleGenerativeAI | ChatOllama
-  readonly agent?: Runnable<BaseLanguageModelInput, AIMessageChunk, ChatOllamaCallOptions>
+  readonly llmWithTools?: Runnable<BaseLanguageModelInput, AIMessageChunk, ChatOllamaCallOptions>
 
   constructor(readonly model: ModelId) {
     switch (model.type) {
@@ -64,14 +64,19 @@ export class LangChainModel {
         this.llm = new ChatOllama({ model: this.model.id })
     }
     if (model.tool) {
-      this.agent = this.llm.bindTools([greetTool])
+      this.llmWithTools = this.llm.bindTools([greetTool])
     }
   }
 
   async chat(message: string): Promise<BotMessage> {
     console.log('Chatting with', this.model.id, ':', message)
     try {
-      const response = await this.agent.invoke(["user", message])
+      let response: AIMessageChunk
+      if (this.llmWithTools) {
+        response = await this.llmWithTools.invoke(["user", message])
+      } else {
+        response = await this.llm.invoke(["user", message])
+      }
       console.log('Chat response:', response)
       return this.toBotMessage(response.content)
     } catch (error) {
