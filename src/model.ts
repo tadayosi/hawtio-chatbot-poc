@@ -71,19 +71,19 @@ export class LangChainModel {
   async chat(message: string): Promise<BotMessage> {
     console.log('Chatting with', this.model.id, ':', message)
     try {
-      let response: AIMessageChunk
+      let result: AIMessageChunk
       if (this.llmWithTools) {
-        response = await this.llmWithTools.invoke(["user", message])
+        result = await this.llmWithTools.invoke(["user", message])
       } else {
-        response = await this.llm.invoke(["user", message])
+        result = await this.llm.invoke(["user", message])
       }
 
-      if (response.tool_calls) {
-        console.log('Tool calls:', response.tool_calls)
+      if (result.tool_calls) {
+        console.log('Tool calls:', result.tool_calls)
       }
 
-      console.log('Chat response:', response)
-      return this.toBotMessage(response.content)
+      console.log('Chat response:', result)
+      return this.toBotMessage(result.content)
     } catch (error) {
       console.error('Error while chatting:', error)
       return { content: String(error) }
@@ -108,20 +108,13 @@ export class LangChainModel {
   }
 }
 
-const greetSchema = z.object({
-  operation: z
-    .enum(["greet"])
-    .describe("Greeting"),
-  name: z.string().describe("The name to greet")
-})
-
 const greetTool = tool(
-  async ({ name }: { name: string }) => {
-    return `Hello, ${name}!`
-  },
+  async ({ name }: { name: string }) => `Hello, ${name}!`,
   {
     name: 'greeter',
     description: 'A tool to greet users',
-    schema: greetSchema
+    schema: z.object({
+      name: z.string().describe("The name to greet")
+    })
   }
 )
