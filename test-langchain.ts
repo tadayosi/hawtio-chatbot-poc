@@ -1,4 +1,4 @@
-import { AIMessageChunk } from '@langchain/core/messages'
+import { BaseMessage, HumanMessage } from '@langchain/core/messages'
 import { tool } from '@langchain/core/tools'
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 import z from 'zod'
@@ -51,20 +51,24 @@ async function main() {
     'Hello, my name is Izana.',
     "How much is 5 + 5? then divide by 2"
   ]
-  const messages: AIMessageChunk[] = []
+  const messages: BaseMessage[] = []
   for (const q of questions) {
-    const result = await llmWithTools.invoke(['user', q])
-    messages.push(result)
-    if (!result.tool_calls) {
-      console.log(result.content)
-    } else {
-      for (const call of result.tool_calls) {
+    messages.push(new HumanMessage(q))
+    let answer = await llmWithTools.invoke(messages)
+    messages.push(answer)
+    while (answer.tool_calls) {
+      for (const call of answer.tool_calls) {
         const selectedTool = toolsByName[call.name]
-        console.log(`Tool to call: ${call.name}`)
-        console.log(`Args: ${JSON.stringify(call.args)}`)
-        const toolMessage = await selectedTool?.invoke(call)
+        console.log('Call:', call.name)
+        console.log('Args:', JSON.stringify(call.args))
+        answer = await selectedTool.invoke(call)
+        if (answer) {
+          messages.push(answer)
+          console.log(answer.content)
+        }
       }
     }
+    console.log('>', answer)
   }
 }
 
