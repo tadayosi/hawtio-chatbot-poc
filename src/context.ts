@@ -1,10 +1,10 @@
 import { MessageProps } from '@patternfly/chatbot'
 import { createContext, Dispatch } from 'react'
-import { Model, MODELS } from './model'
+import { LangChainModel, MODELS } from './model'
 
 export type ChatContext = {
-  model: Model,
-  setModel: Dispatch<React.SetStateAction<Model>>,
+  model: LangChainModel,
+  setModel: Dispatch<React.SetStateAction<LangChainModel>>,
   messages: MessageProps[],
   setMessages: Dispatch<React.SetStateAction<MessageProps[]>>,
   announcement: string,
@@ -14,7 +14,7 @@ export type ChatContext = {
 }
 
 export const ChatContext = createContext<ChatContext>({
-  model: new Model(MODELS[0]),
+  model: new LangChainModel(MODELS[0]!),
   setModel: () => {},
   messages: [],
   setMessages: () => {},
