@@ -1,5 +1,5 @@
 import { BaseMessage, HumanMessage } from '@langchain/core/messages'
-import { tool } from '@langchain/core/tools'
+import { DynamicStructuredTool, tool } from '@langchain/core/tools'
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 import z from 'zod'
 
@@ -10,7 +10,7 @@ const greeter = tool(
     description: 'A tool to greet users',
     schema: z.object({
       name: z.string().describe("The name to greet")
-    })
+    }),
   }
 )
 
@@ -39,10 +39,10 @@ const divideNumbers = tool(
 )
 
 const tools = [greeter, sumNumbers, divideNumbers]
-const toolsByName: Record<string, typeof tools[number]> = tools.reduce((acc, tool) => {
+const toolsByName: Record<string, DynamicStructuredTool> = tools.reduce((acc, tool) => {
   acc[tool.name] = tool
   return acc
-}, {} as Record<string, typeof tools[number]>)
+}, {} as Record<string, DynamicStructuredTool>)
 
 async function main() {
   const llm = new ChatGoogleGenerativeAI({ model: 'gemini-2.5-flash' })
@@ -59,16 +59,18 @@ async function main() {
     while (answer.tool_calls) {
       for (const call of answer.tool_calls) {
         const selectedTool = toolsByName[call.name]
-        console.log('Call:', call.name)
-        console.log('Args:', JSON.stringify(call.args))
-        answer = await selectedTool.invoke(call)
-        if (answer) {
-          messages.push(answer)
-          console.log(answer.content)
+        console.log('🛠️  Call:', call.name, JSON.stringify(call.args))
+        const toolAnswer = await selectedTool.invoke(call)
+        if (toolAnswer) {
+          messages.push(toolAnswer)
+          console.log('🛠️ ', call.name + ':', toolAnswer.content)
         }
       }
+      const answerAfterTool = await llmWithTools.invoke(messages)
+      messages.push(answerAfterTool)
+      answer = answerAfterTool
     }
-    console.log('>', answer)
+    console.log('ℹ️ ', answer.content)
   }
 }
 
