@@ -6,6 +6,7 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 import { ChatOllama, ChatOllamaCallOptions } from "@langchain/ollama"
 import { Ollama } from '@llamaindex/ollama'
 import { agent, AgentWorkflow } from '@llamaindex/workflow'
+import { ToolCall } from '@langchain/core/messages/tool'
 import z from 'zod'
 
 type ModelId = { id: string; name: string, tool: boolean, type: 'ollama' | 'google-genai' }
@@ -90,6 +91,16 @@ export class LangChainModel {
       console.error('Error while chatting:', error)
       return String(error)
     }
+  }
+
+  async invokeTools(toolCalls: ToolCall[]): Promise<AIMessage | string> {
+    for (const call of toolCalls) {
+      console.log('Invoking tool:', call.name)
+      // Simulate tool invocation
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      console.log('Tool invocation complete:', call.name)
+    }
+    return 'All tools invoked successfully'
   }
 
   private toBotMessage(message: MessageContent): BotMessage {

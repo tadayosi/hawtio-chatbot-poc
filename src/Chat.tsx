@@ -17,12 +17,16 @@ import MessageBox from '@patternfly/chatbot/dist/dynamic/MessageBox'
 import {
   Alert,
   Bullseye,
+  Button,
   Content,
-  DropdownItem, DropdownList
+  DropdownItem, DropdownList,
+  Flex
 } from '@patternfly/react-core'
 import userAvatar from '@patternfly/react-core/dist/styles/assets/images/img_avatar-light.svg'
-import React, { FC, Fragment, JSX, useContext, useEffect, useRef, useState } from 'react'
+import React, { FC, Fragment, useContext, useEffect, useRef, useState } from 'react'
 //import patternflyAvatar from '@patternfly/react-core/dist/styles/assets/images/PF-IconLogo.svg'
+import { ToolCall } from '@langchain/core/messages/tool'
+import WrenchIcon from '@patternfly/react-icons/dist/esm/icons/wrench-icon'
 import patternflyAvatar from './assets/patternfly_avatar.jpg'
 import { ChatContext } from './context'
 import { LangChainModel, MODELS } from './model'
@@ -170,13 +174,13 @@ const ChatAppFooter: FC<{}> = () => {
   const { model, messages, setMessages, setAnnouncement } = useContext(ChatContext)
   const [isSendButtonDisabled, setIsSendButtonDisabled] = useState(false)
 
-  // you will likely want to come up with your own unique id function; this is for demo purposes only
+  // TODO: demo-level unique ID generation
   const generateId = () => {
     const id = Date.now() + Math.random()
     return id.toString()
   }
 
-  const handleSend = (message: string) => {
+  const handleSend = async (message: string) => {
     if (!message.trim()) {
       return
     }
@@ -197,40 +201,62 @@ const ChatAppFooter: FC<{}> = () => {
     // make announcement to assistive devices that new messages have been added
     setAnnouncement(`Message from User: ${message}. Message from Bot is loading.`)
 
-    model.chat(message).then(response => {
-      const loadedMessages: MessageProps[] = []
-      loadedMessages.push(...newMessages)
-      // Remove the loading message
-      loadedMessages.pop()
-      const botMessage: MessageProps = {
-        id: generateId(),
-        role: 'bot',
-        content:,
-        name: model.model.name,
-        avatar: patternflyAvatar,
-        isLoading: false,
-        actions: {
-          positive: { onClick: () => console.log('Good response') },
-          negative: { onClick: () => console.log('Bad response') },
-          copy: { onClick: () => console.log('Copy') },
-          share: { onClick: () => console.log('Share') },
-          listen: { onClick: () => console.log('Listen') }
-        }
+    const response = await model.chat(message)
+    const loadedMessages: MessageProps[] = []
+    loadedMessages.push(...newMessages)
+    // Remove the loading message
+    loadedMessages.pop()
+    const botMessage: MessageProps = {
+      id: generateId(),
+      role: 'bot',
+      name: model.model.name,
+      avatar: patternflyAvatar,
+      isLoading: false,
+      actions: {
+        positive: { onClick: () => console.log('Good response') },
+        negative: { onClick: () => console.log('Bad response') },
+        copy: { onClick: () => console.log('Copy') },
+        share: { onClick: () => console.log('Share') },
+        listen: { onClick: () => console.log('Listen') }
       }
-      botMessage.content = response.content
-      botMessage.extraContent = response.think ? {
-        beforeMainContent: (
-          <Alert variant='info' title='Think' isExpandable>
-            {response.think}
-          </Alert>
-        )
-      } : undefined
-      loadedMessages.push(botMessage)
-      setMessages(loadedMessages)
-      setAnnouncement(`Message from Bot: ${response}`)
-      setIsSendButtonDisabled(false)
     }
-}
+    if (typeof response === 'string') {
+      // Error
+      botMessage.content = `Error: ${response}`
+    } else {
+      if (response.tool_calls && response.tool_calls.length > 0) {
+        const toolCalls = response.tool_calls
+        botMessage.content = `${model.model.name} wants to use ` + (toolCalls.length > 1 ? 'tools' : 'a tool')
+        botMessage.extraContent = {
+          beforeMainContent: toolCalls.map((call, index) => (
+            <Alert key={index} variant='info' title={<><WrenchIcon /> {call.name}</>} isExpandable>
+              Args: {JSON.stringify(call.args)}
+            </Alert>
+          )),
+          afterMainContent: (
+            <Flex columnGap={{ default: 'columnGapSm' }}>
+              <Button variant='primary' onClick={() => approve(toolCalls)}>Approve</Button>
+              <Button variant='secondary' onClick={reject}>Reject</Button>
+            </Flex>
+          )
+        }
+      } else {
+        botMessage.content = response.content as string
+      }
+    }
+    loadedMessages.push(botMessage)
+    setMessages(loadedMessages)
+    setAnnouncement(`Message from Bot: ${response}`)
+    setIsSendButtonDisabled(false)
+  }
+
+  const approve = (toolCalls: ToolCall[]) => {
+    console.log('Approved')
+  }
+
+  const reject = () => {
+    console.log('Rejected')
+  }
 
   return (
     <ChatbotFooter>
