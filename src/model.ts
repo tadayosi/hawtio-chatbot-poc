@@ -1,5 +1,5 @@
 import { BaseLanguageModelInput } from '@langchain/core/language_models/base'
-import { AIMessageChunk, MessageContent } from '@langchain/core/messages'
+import { AIMessage, AIMessageChunk, BaseMessage, HumanMessage, MessageContent } from '@langchain/core/messages'
 import { Runnable } from '@langchain/core/runnables'
 import { tool } from '@langchain/core/tools'
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
@@ -24,8 +24,8 @@ export const MODELS: ModelId[] = [
 ] as const
 
 export type BotMessage = {
-  content: string
-  think?: string
+  content: string | AIMessage
+  think?: string | undefined
 }
 
 export class LlamaIndexModel {
@@ -53,6 +53,7 @@ export class LlamaIndexModel {
 export class LangChainModel {
   readonly llm: ChatGoogleGenerativeAI | ChatOllama
   readonly llmWithTools?: Runnable<BaseLanguageModelInput, AIMessageChunk, ChatOllamaCallOptions>
+  readonly messages: BaseMessage[] = []
 
   constructor(readonly model: ModelId) {
     switch (model.type) {
@@ -68,25 +69,26 @@ export class LangChainModel {
     }
   }
 
-  async chat(message: string): Promise<BotMessage> {
+  async chat(message: string): Promise<AIMessage | string> {
     console.log('Chatting with', this.model.id, ':', message)
+    this.messages.push(new HumanMessage(message))
     try {
-      let result: AIMessageChunk
+      let reply: AIMessageChunk
       if (this.llmWithTools) {
-        result = await this.llmWithTools.invoke(["user", message])
+        reply = await this.llmWithTools.invoke(this.messages)
       } else {
-        result = await this.llm.invoke(["user", message])
+        reply = await this.llm.invoke(this.messages)
       }
 
-      if (result.tool_calls) {
-        console.log('Tool calls:', result.tool_calls)
+      if (reply.tool_calls && reply.tool_calls.length > 0) {
+        console.log('🛠️  calls:', reply.tool_calls)
       }
 
-      console.log('Chat response:', result)
-      return this.toBotMessage(result.content)
+      console.log('Reply:', reply)
+      return reply
     } catch (error) {
       console.error('Error while chatting:', error)
-      return { content: String(error) }
+      return String(error)
     }
   }
 

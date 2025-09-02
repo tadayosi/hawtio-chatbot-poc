@@ -21,7 +21,7 @@ import {
   DropdownItem, DropdownList
 } from '@patternfly/react-core'
 import userAvatar from '@patternfly/react-core/dist/styles/assets/images/img_avatar-light.svg'
-import React, { FC, Fragment, useContext, useEffect, useRef, useState } from 'react'
+import React, { FC, Fragment, JSX, useContext, useEffect, useRef, useState } from 'react'
 //import patternflyAvatar from '@patternfly/react-core/dist/styles/assets/images/PF-IconLogo.svg'
 import patternflyAvatar from './assets/patternfly_avatar.jpg'
 import { ChatContext } from './context'
@@ -200,18 +200,12 @@ const ChatAppFooter: FC<{}> = () => {
     model.chat(message).then(response => {
       const loadedMessages: MessageProps[] = []
       loadedMessages.push(...newMessages)
+      // Remove the loading message
       loadedMessages.pop()
-      loadedMessages.push({
+      const botMessage: MessageProps = {
         id: generateId(),
         role: 'bot',
-        content: response.content,
-        extraContent: response.think ? {
-          beforeMainContent: (
-            <Alert variant='info' title='Think' isExpandable>
-              {response.think}
-            </Alert>
-          )
-        } : undefined,
+        content:,
         name: model.model.name,
         avatar: patternflyAvatar,
         isLoading: false,
@@ -222,12 +216,21 @@ const ChatAppFooter: FC<{}> = () => {
           share: { onClick: () => console.log('Share') },
           listen: { onClick: () => console.log('Listen') }
         }
-      })
+      }
+      botMessage.content = response.content
+      botMessage.extraContent = response.think ? {
+        beforeMainContent: (
+          <Alert variant='info' title='Think' isExpandable>
+            {response.think}
+          </Alert>
+        )
+      } : undefined
+      loadedMessages.push(botMessage)
       setMessages(loadedMessages)
       setAnnouncement(`Message from Bot: ${response}`)
       setIsSendButtonDisabled(false)
-    })
-  }
+    }
+}
 
   return (
     <ChatbotFooter>
