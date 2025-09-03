@@ -186,8 +186,7 @@ const ChatAppFooter: FC<{}> = () => {
     }
 
     setIsSendButtonDisabled(true)
-    const newMessages: MessageProps[] = []
-    newMessages.push(...messages)
+    const newMessages: MessageProps[] = [...messages]
     newMessages.push({ id: generateId(), role: 'user', content: message, name: 'User', avatar: userAvatar })
     newMessages.push({
       id: generateId(),
@@ -250,12 +249,83 @@ const ChatAppFooter: FC<{}> = () => {
     setIsSendButtonDisabled(false)
   }
 
-  const approve = (toolCalls: ToolCall[]) => {
+  const approve = async (toolCalls: ToolCall[]) => {
     console.log('Approved')
+
+    setIsSendButtonDisabled(true)
+    const newMessages: MessageProps[] = []
+    newMessages.push(...messages)
+    newMessages.push({ id: generateId(), role: 'user', content: 'Approved', name: 'User', avatar: userAvatar })
+    newMessages.push({
+      id: generateId(),
+      role: 'bot',
+      content: 'API response goes here',
+      name: model.model.name,
+      avatar: patternflyAvatar,
+      isLoading: true
+    })
+    setMessages(newMessages)
+    // make announcement to assistive devices that new messages have been added
+    setAnnouncement(`User approved tool usage. Message from Bot is loading.`)
+
+    const response = await model.invokeTools(toolCalls)
+    const loadedMessages: MessageProps[] = []
+    loadedMessages.push(...newMessages)
+    // Remove the loading message
+    loadedMessages.pop()
+    const botMessage: MessageProps = {
+      id: generateId(),
+      role: 'bot',
+      name: model.model.name,
+      avatar: patternflyAvatar,
+      isLoading: false,
+      actions: {
+        positive: { onClick: () => console.log('Good response') },
+        negative: { onClick: () => console.log('Bad response') },
+        copy: { onClick: () => console.log('Copy') },
+        share: { onClick: () => console.log('Share') },
+        listen: { onClick: () => console.log('Listen') }
+      }
+    }
+    if (typeof response === 'string') {
+      // Error
+      botMessage.content = `Error: ${response}`
+    } else {
+      if (response.tool_calls && response.tool_calls.length > 0) {
+        const toolCalls = response.tool_calls
+        botMessage.content = `${model.model.name} wants to use ` + (toolCalls.length > 1 ? 'tools' : 'a tool')
+        botMessage.extraContent = {
+          beforeMainContent: toolCalls.map((call, index) => (
+            <Alert key={index} variant='info' title={<><WrenchIcon /> {call.name}</>} isExpandable>
+              Args: {JSON.stringify(call.args)}
+            </Alert>
+          )),
+          afterMainContent: (
+            <Flex columnGap={{ default: 'columnGapSm' }}>
+              <Button variant='primary' onClick={() => approve(toolCalls)}>Approve</Button>
+              <Button variant='secondary' onClick={reject}>Reject</Button>
+            </Flex>
+          )
+        }
+      } else {
+        botMessage.content = response.content as string
+      }
+    }
+    loadedMessages.push(botMessage)
+    setMessages(loadedMessages)
+    setAnnouncement(`Message from Bot: ${response}`)
+    setIsSendButtonDisabled(false)
   }
 
   const reject = () => {
     console.log('Rejected')
+
+    setIsSendButtonDisabled(true)
+    const newMessages: MessageProps[] = []
+    newMessages.push(...messages)
+    newMessages.push({ id: generateId(), role: 'user', content: 'Rejected', name: 'User', avatar: userAvatar })
+    setMessages(newMessages)
+    setIsSendButtonDisabled(false)
   }
 
   return (

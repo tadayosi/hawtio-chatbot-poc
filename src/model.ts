@@ -1,7 +1,7 @@
 import { BaseLanguageModelInput } from '@langchain/core/language_models/base'
 import { AIMessage, AIMessageChunk, BaseMessage, HumanMessage, MessageContent } from '@langchain/core/messages'
 import { Runnable } from '@langchain/core/runnables'
-import { tool } from '@langchain/core/tools'
+import { DynamicStructuredTool, tool } from '@langchain/core/tools'
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 import { ChatOllama, ChatOllamaCallOptions } from "@langchain/ollama"
 import { Ollama } from '@llamaindex/ollama'
@@ -55,6 +55,11 @@ export class LangChainModel {
   readonly llm: ChatGoogleGenerativeAI | ChatOllama
   readonly llmWithTools?: Runnable<BaseLanguageModelInput, AIMessageChunk, ChatOllamaCallOptions>
   readonly messages: BaseMessage[] = []
+  readonly tools: DynamicStructuredTool[] = [greetTool]
+  readonly toolsByName: Record<string, DynamicStructuredTool> = this.tools.reduce((acc, tool) => {
+    acc[tool.name] = tool
+    return acc
+  }, {} as Record<string, DynamicStructuredTool>)
 
   constructor(readonly model: ModelId) {
     switch (model.type) {
@@ -66,7 +71,7 @@ export class LangChainModel {
         this.llm = new ChatOllama({ model: this.model.id })
     }
     if (model.tool) {
-      this.llmWithTools = this.llm.bindTools([greetTool])
+      this.llmWithTools = this.llm.bindTools(this.tools)
     }
   }
 
@@ -93,16 +98,6 @@ export class LangChainModel {
     }
   }
 
-  async invokeTools(toolCalls: ToolCall[]): Promise<AIMessage | string> {
-    for (const call of toolCalls) {
-      console.log('Invoking tool:', call.name)
-      // Simulate tool invocation
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      console.log('Tool invocation complete:', call.name)
-    }
-    return 'All tools invoked successfully'
-  }
-
   private toBotMessage(message: MessageContent): BotMessage {
     let str = ''
     if (Array.isArray(message)) {
@@ -118,6 +113,18 @@ export class LangChainModel {
     const content = str.replace(/<think>.*?<\/think>/s, '')
     console.log('Response - content:', content, 'think:', think)
     return { content, think }
+  }
+
+  async invokeTools(toolCalls: ToolCall[]): Promise<AIMessage | string> {
+    for (const call of toolCalls) {
+      console.log('🛠️  Call:', call.name, JSON.stringify(call.args))
+      const selectedTool = this.toolsByName[call.name]
+      const toolAnswer = await selectedTool?.invoke(call.args)
+      if (toolAnswer) {
+        console.log('🛠️  Tool response:', toolAnswer)
+      }
+    }
+    return 'All tools invoked successfully'
   }
 }
 
