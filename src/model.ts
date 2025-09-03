@@ -1,12 +1,12 @@
 import { BaseLanguageModelInput } from '@langchain/core/language_models/base'
 import { AIMessage, AIMessageChunk, BaseMessage, HumanMessage, MessageContent } from '@langchain/core/messages'
+import { ToolCall } from '@langchain/core/messages/tool'
 import { Runnable } from '@langchain/core/runnables'
 import { DynamicStructuredTool, tool } from '@langchain/core/tools'
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 import { ChatOllama, ChatOllamaCallOptions } from "@langchain/ollama"
 import { Ollama } from '@llamaindex/ollama'
 import { agent, AgentWorkflow } from '@llamaindex/workflow'
-import { ToolCall } from '@langchain/core/messages/tool'
 import z from 'zod'
 
 type ModelId = { id: string; name: string, tool: boolean, type: 'ollama' | 'google-genai' }
@@ -79,19 +79,19 @@ export class LangChainModel {
     console.log('Chatting with', this.model.id, ':', message)
     this.messages.push(new HumanMessage(message))
     try {
-      let reply: AIMessageChunk
+      let answer: AIMessageChunk
       if (this.llmWithTools) {
-        reply = await this.llmWithTools.invoke(this.messages)
+        answer = await this.llmWithTools.invoke(this.messages)
       } else {
-        reply = await this.llm.invoke(this.messages)
+        answer = await this.llm.invoke(this.messages)
       }
 
-      if (reply.tool_calls && reply.tool_calls.length > 0) {
-        console.log('🛠️  calls:', reply.tool_calls)
+      if (answer.tool_calls && answer.tool_calls.length > 0) {
+        console.log('🛠️  calls:', answer.tool_calls)
       }
-
-      console.log('Reply:', reply)
-      return reply
+      console.log('Answer:', answer)
+      this.messages.push(answer)
+      return answer
     } catch (error) {
       console.error('Error while chatting:', error)
       return String(error)
@@ -116,15 +116,24 @@ export class LangChainModel {
   }
 
   async invokeTools(toolCalls: ToolCall[]): Promise<AIMessage | string> {
+    if (!this.llmWithTools) {
+      return 'Tool invocation not supported'
+    }
+
     for (const call of toolCalls) {
       console.log('🛠️  Call:', call.name, JSON.stringify(call.args))
       const selectedTool = this.toolsByName[call.name]
       const toolAnswer = await selectedTool?.invoke(call.args)
       if (toolAnswer) {
-        console.log('🛠️  Tool response:', toolAnswer)
+        console.log('🛠️  Answer:', toolAnswer)
+        this.messages.push(toolAnswer)
       }
     }
-    return 'All tools invoked successfully'
+    const finalAnswer = await this.llmWithTools.invoke(this.messages)
+    if (finalAnswer) {
+      this.messages.push(finalAnswer)
+    }
+    return finalAnswer
   }
 }
 
