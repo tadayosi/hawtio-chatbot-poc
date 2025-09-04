@@ -175,6 +175,7 @@ const ChatAppFooter: FC<{}> = () => {
   const { model, messages, setMessages, setAnnouncement } = useContext(ChatContext)
   const modelName = model.model.name
   const [isSendButtonDisabled, setIsSendButtonDisabled] = useState(false)
+  // Ref used for referencing updated messages from the button actions
   const messagesRef = useRef<MessageProps[]>(messages)
 
   useEffect(() => {
@@ -217,7 +218,17 @@ const ChatAppFooter: FC<{}> = () => {
 
     if (!answer.tool_calls || answer.tool_calls.length === 0) {
       // No tool calls
-      botMessage.content = answer.content as string
+      const content = model.toBotMessage(answer.content)
+      botMessage.content = content.content as string
+      if (content.think) {
+        botMessage.extraContent = {
+          beforeMainContent: (
+            <Alert variant='info' title='Think' isExpandable>
+              {content.think}
+            </Alert>
+          )
+        }
+      }
       return botMessage
     }
 

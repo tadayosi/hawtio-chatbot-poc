@@ -102,7 +102,7 @@ export class LangChainModel {
     }
   }
 
-  private toBotMessage(message: MessageContent): BotMessage {
+  toBotMessage(message: MessageContent): BotMessage {
     let str = ''
     if (Array.isArray(message)) {
       const complex = message[0]
