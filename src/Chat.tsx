@@ -17,12 +17,17 @@ import MessageBox from '@patternfly/chatbot/dist/dynamic/MessageBox'
 import {
   Alert,
   Bullseye,
+  Button,
   Content,
-  DropdownItem, DropdownList
+  DropdownItem, DropdownList,
+  Flex
 } from '@patternfly/react-core'
 import userAvatar from '@patternfly/react-core/dist/styles/assets/images/img_avatar-light.svg'
 import React, { FC, Fragment, useContext, useEffect, useRef, useState } from 'react'
 //import patternflyAvatar from '@patternfly/react-core/dist/styles/assets/images/PF-IconLogo.svg'
+import { AIMessage } from '@langchain/core/messages'
+import { ToolCall } from '@langchain/core/messages/tool'
+import WrenchIcon from '@patternfly/react-icons/dist/esm/icons/wrench-icon'
 import patternflyAvatar from './assets/patternfly_avatar.jpg'
 import { ChatContext } from './context'
 import { LangChainModel, MODELS } from './model'
@@ -168,65 +173,158 @@ const ChatAppContent: FC<{}> = () => {
 
 const ChatAppFooter: FC<{}> = () => {
   const { model, messages, setMessages, setAnnouncement } = useContext(ChatContext)
+  const modelName = model.model.name
   const [isSendButtonDisabled, setIsSendButtonDisabled] = useState(false)
+  // Ref used for referencing updated messages from the button actions
+  const messagesRef = useRef<MessageProps[]>(messages)
 
-  // you will likely want to come up with your own unique id function; this is for demo purposes only
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
+  // TODO: demo-level unique ID generation
   const generateId = () => {
     const id = Date.now() + Math.random()
     return id.toString()
   }
 
-  const handleSend = (message: string) => {
+  const toolApproveButtons = (toolCalls: ToolCall[]) => (
+    <Flex columnGap={{ default: 'columnGapSm' }}>
+      <Button variant='primary' onClick={() => approve(toolCalls)}>Approve</Button>
+      <Button variant='secondary' onClick={reject}>Reject</Button>
+    </Flex>
+  )
+
+  const toBotMessage = (answer: AIMessage | string): MessageProps => {
+    const botMessage: MessageProps = {
+      id: generateId(),
+      role: 'bot',
+      name: modelName,
+      avatar: patternflyAvatar,
+      isLoading: false,
+      actions: {
+        positive: { onClick: () => console.log('Good response') },
+        negative: { onClick: () => console.log('Bad response') },
+        copy: { onClick: () => console.log('Copy') },
+        share: { onClick: () => console.log('Share') },
+        listen: { onClick: () => console.log('Listen') }
+      }
+    }
+    if (typeof answer === 'string') {
+      // Error
+      botMessage.content = `Error: ${answer}`
+      return botMessage
+    }
+
+    if (!answer.tool_calls || answer.tool_calls.length === 0) {
+      // No tool calls
+      const content = model.toBotMessage(answer.content)
+      botMessage.content = content.content as string
+      if (content.think) {
+        botMessage.extraContent = {
+          beforeMainContent: (
+            <Alert variant='info' title='Think' isExpandable>
+              {content.think}
+            </Alert>
+          )
+        }
+      }
+      return botMessage
+    }
+
+    // Tool calls
+    const toolCalls = answer.tool_calls
+    botMessage.content = `${modelName} wants to use ` + (toolCalls.length > 1 ? 'tools' : 'a tool')
+    botMessage.extraContent = {
+      beforeMainContent: toolCalls.map((call, index) => (
+        <Alert key={index} variant='info' title={<><WrenchIcon /> {call.name}</>} isExpandable>
+          Args: {JSON.stringify(call.args)}
+        </Alert>
+      )),
+      afterMainContent: toolApproveButtons(toolCalls)
+    }
+    return botMessage
+  }
+
+  const handleSend = async (message: string) => {
     if (!message.trim()) {
       return
     }
+    console.log('Send', messagesRef.current)
 
     setIsSendButtonDisabled(true)
     const newMessages: MessageProps[] = []
-    newMessages.push(...messages)
+    newMessages.push(...messagesRef.current)
     newMessages.push({ id: generateId(), role: 'user', content: message, name: 'User', avatar: userAvatar })
     newMessages.push({
       id: generateId(),
       role: 'bot',
       content: 'API response goes here',
-      name: model.model.name,
+      name: modelName,
       avatar: patternflyAvatar,
       isLoading: true
     })
     setMessages(newMessages)
     // make announcement to assistive devices that new messages have been added
     setAnnouncement(`Message from User: ${message}. Message from Bot is loading.`)
+    console.log('handleSend - newMessages:', newMessages)
 
-    model.chat(message).then(response => {
-      const loadedMessages: MessageProps[] = []
-      loadedMessages.push(...newMessages)
-      loadedMessages.pop()
-      loadedMessages.push({
-        id: generateId(),
-        role: 'bot',
-        content: response.content,
-        extraContent: response.think ? {
-          beforeMainContent: (
-            <Alert variant='info' title='Think' isExpandable>
-              {response.think}
-            </Alert>
-          )
-        } : undefined,
-        name: model.model.name,
-        avatar: patternflyAvatar,
-        isLoading: false,
-        actions: {
-          positive: { onClick: () => console.log('Good response') },
-          negative: { onClick: () => console.log('Bad response') },
-          copy: { onClick: () => console.log('Copy') },
-          share: { onClick: () => console.log('Share') },
-          listen: { onClick: () => console.log('Listen') }
-        }
-      })
-      setMessages(loadedMessages)
-      setAnnouncement(`Message from Bot: ${response}`)
-      setIsSendButtonDisabled(false)
+    const answer = await model.chat(message)
+    const loadedMessages: MessageProps[] = []
+    loadedMessages.push(...newMessages)
+    console.log('handleSend - loadedMessages:', loadedMessages)
+    // Remove the loading message
+    loadedMessages.pop()
+    const botMessage = toBotMessage(answer)
+    loadedMessages.push(botMessage)
+    setMessages(loadedMessages)
+    setAnnouncement(`Message from Bot: ${answer}`)
+    setIsSendButtonDisabled(false)
+  }
+
+  const approve = async (toolCalls: ToolCall[]) => {
+    console.log('Approved', messagesRef.current)
+
+    setIsSendButtonDisabled(true)
+    const newMessages: MessageProps[] = []
+    newMessages.push(...messagesRef.current)
+    newMessages.push({ id: generateId(), role: 'user', content: 'Approved', name: 'User', avatar: userAvatar })
+    newMessages.push({
+      id: generateId(),
+      role: 'bot',
+      content: 'API response goes here',
+      name: modelName,
+      avatar: patternflyAvatar,
+      isLoading: true
     })
+    setMessages(newMessages)
+    // make announcement to assistive devices that new messages have been added
+    setAnnouncement(`User approved tool usage. Message from Bot is loading.`)
+    console.log('approve - newMessages:', newMessages)
+
+    const answer = await model.invokeTools(toolCalls)
+    console.log('Answer:', answer)
+    const loadedMessages: MessageProps[] = []
+    loadedMessages.push(...newMessages)
+    console.log('approve - loadedMessages:', loadedMessages)
+    // Remove the loading message
+    loadedMessages.pop()
+    const botMessage = toBotMessage(answer)
+    loadedMessages.push(botMessage)
+    setMessages(loadedMessages)
+    setAnnouncement(`Message from Bot: ${answer}`)
+    setIsSendButtonDisabled(false)
+  }
+
+  const reject = () => {
+    console.log('Rejected')
+
+    setIsSendButtonDisabled(true)
+    const newMessages: MessageProps[] = []
+    newMessages.push(...messages)
+    newMessages.push({ id: generateId(), role: 'user', content: 'Rejected', name: 'User', avatar: userAvatar })
+    setMessages(newMessages)
+    setIsSendButtonDisabled(false)
   }
 
   return (

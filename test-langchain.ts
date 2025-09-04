@@ -65,7 +65,7 @@ async function main() {
       for (const call of message.tool_calls) {
         const selectedTool = toolsByName[call.name]
         console.log('🛠️  Call:', call.name, JSON.stringify(call.args))
-        const toolAnswer = await selectedTool.invoke(call)
+        const toolAnswer = await selectedTool?.invoke(call)
         if (toolAnswer) {
           messages.push(toolAnswer)
           console.log('🛠️ ', call.name + ':', toolAnswer.content)

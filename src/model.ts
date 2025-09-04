@@ -1,7 +1,8 @@
 import { BaseLanguageModelInput } from '@langchain/core/language_models/base'
-import { AIMessageChunk, MessageContent } from '@langchain/core/messages'
+import { AIMessage, AIMessageChunk, BaseMessage, HumanMessage, MessageContent } from '@langchain/core/messages'
+import { ToolCall } from '@langchain/core/messages/tool'
 import { Runnable } from '@langchain/core/runnables'
-import { tool } from '@langchain/core/tools'
+import { DynamicStructuredTool, tool } from '@langchain/core/tools'
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 import { ChatOllama, ChatOllamaCallOptions } from "@langchain/ollama"
 import { Ollama } from '@llamaindex/ollama'
@@ -24,8 +25,8 @@ export const MODELS: ModelId[] = [
 ] as const
 
 export type BotMessage = {
-  content: string
-  think?: string
+  content: string | AIMessage
+  think?: string | undefined
 }
 
 export class LlamaIndexModel {
@@ -53,44 +54,55 @@ export class LlamaIndexModel {
 export class LangChainModel {
   readonly llm: ChatGoogleGenerativeAI | ChatOllama
   readonly llmWithTools?: Runnable<BaseLanguageModelInput, AIMessageChunk, ChatOllamaCallOptions>
+  readonly messages: BaseMessage[] = []
+  readonly tools: DynamicStructuredTool[] = [greetTool]
+  readonly toolsByName: Record<string, DynamicStructuredTool> = this.tools.reduce((acc, tool) => {
+    acc[tool.name] = tool
+    return acc
+  }, {} as Record<string, DynamicStructuredTool>)
 
   constructor(readonly model: ModelId) {
     switch (model.type) {
       case 'google-genai':
-        this.llm = new ChatGoogleGenerativeAI({ model: this.model.id, apiKey: import.meta.env.VITE_GOOGLE_API_KEY })
+        this.llm = new ChatGoogleGenerativeAI({
+          model: this.model.id,
+          apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
+          temperature: 0
+        })
         break
       case 'ollama':
       default:
         this.llm = new ChatOllama({ model: this.model.id })
     }
     if (model.tool) {
-      this.llmWithTools = this.llm.bindTools([greetTool])
+      this.llmWithTools = this.llm.bindTools(this.tools)
     }
   }
 
-  async chat(message: string): Promise<BotMessage> {
+  async chat(message: string): Promise<AIMessage | string> {
     console.log('Chatting with', this.model.id, ':', message)
+    this.messages.push(new HumanMessage(message))
     try {
-      let result: AIMessageChunk
+      let answer: AIMessageChunk
       if (this.llmWithTools) {
-        result = await this.llmWithTools.invoke(["user", message])
+        answer = await this.llmWithTools.invoke(this.messages)
       } else {
-        result = await this.llm.invoke(["user", message])
+        answer = await this.llm.invoke(this.messages)
       }
 
-      if (result.tool_calls) {
-        console.log('Tool calls:', result.tool_calls)
+      if (answer.tool_calls && answer.tool_calls.length > 0) {
+        console.log('🛠️  calls:', answer.tool_calls)
       }
-
-      console.log('Chat response:', result)
-      return this.toBotMessage(result.content)
+      console.log('Answer:', answer)
+      this.messages.push(answer)
+      return answer
     } catch (error) {
       console.error('Error while chatting:', error)
-      return { content: String(error) }
+      return String(error)
     }
   }
 
-  private toBotMessage(message: MessageContent): BotMessage {
+  toBotMessage(message: MessageContent): BotMessage {
     let str = ''
     if (Array.isArray(message)) {
       const complex = message[0]
@@ -105,6 +117,28 @@ export class LangChainModel {
     const content = str.replace(/<think>.*?<\/think>/s, '')
     console.log('Response - content:', content, 'think:', think)
     return { content, think }
+  }
+
+  async invokeTools(toolCalls: ToolCall[]): Promise<AIMessage | string> {
+    if (!this.llmWithTools) {
+      return 'Tool invocation not supported'
+    }
+
+    for (const call of toolCalls) {
+      console.log('🛠️  Call:', call.name, JSON.stringify(call.args))
+      const selectedTool = this.toolsByName[call.name]
+      const toolAnswer = await selectedTool?.invoke(call)
+      if (toolAnswer) {
+        console.log('🛠️  ' + call.name + ':', toolAnswer)
+        this.messages.push(toolAnswer)
+      }
+    }
+    const finalAnswer = await this.llmWithTools.invoke(this.messages)
+    if (finalAnswer) {
+      this.messages.push(finalAnswer)
+    }
+    console.debug('Messages>>', this.messages)
+    return finalAnswer
   }
 }
 
