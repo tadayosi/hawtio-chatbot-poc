@@ -64,7 +64,11 @@ export class LangChainModel {
   constructor(readonly model: ModelId) {
     switch (model.type) {
       case 'google-genai':
-        this.llm = new ChatGoogleGenerativeAI({ model: this.model.id, apiKey: import.meta.env.VITE_GOOGLE_API_KEY })
+        this.llm = new ChatGoogleGenerativeAI({
+          model: this.model.id,
+          apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
+          temperature: 0
+        })
         break
       case 'ollama':
       default:
@@ -123,9 +127,9 @@ export class LangChainModel {
     for (const call of toolCalls) {
       console.log('🛠️  Call:', call.name, JSON.stringify(call.args))
       const selectedTool = this.toolsByName[call.name]
-      const toolAnswer = await selectedTool?.invoke(call.args)
+      const toolAnswer = await selectedTool?.invoke(call)
       if (toolAnswer) {
-        console.log('🛠️  Answer:', toolAnswer)
+        console.log('🛠️  ' + call.name + ':', toolAnswer)
         this.messages.push(toolAnswer)
       }
     }
@@ -133,6 +137,7 @@ export class LangChainModel {
     if (finalAnswer) {
       this.messages.push(finalAnswer)
     }
+    console.debug('Messages>>', this.messages)
     return finalAnswer
   }
 }
